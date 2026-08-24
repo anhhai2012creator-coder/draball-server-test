@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siêu Chiến Binh - Kỷ Nguyên Thần Thánh v4.3</title>
+    <!-- Nhúng file CSS vào HTML -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="end-overlay">
+        <h2 id="end-title">ĐỘI 1 CHIẾN THẮNG</h2>
+        <p>Quay về màn hình chính sau <span id="end-cd" style="color:var(--warning); font-weight:bold;">5</span> giây...</p>
+    </div>
+
+    <!-- MAIN MENU SCREEN -->
+    <div id="menu-screen" class="screen active">
+        <h1>SIÊU CHIẾN BINH</h1>
+        <div class="glass-panel" style="text-align: center; min-width: 450px;">
+            <p style="margin-bottom: 25px; font-size: 1.2rem; color: #cbd5e1;">Turn-Base Chiến Thuật - Kỷ Nguyên Thần Thánh v4.3</p>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <button class="btn btn-primary" onclick="App.enterBP()">BẮT ĐẦU CHIẾN ĐẤU</button>
+                <button class="btn btn-info" onclick="App.show('info-screen')">THÔNG SỐ & KỸ NĂNG</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFO SCREEN -->
+    <div id="info-screen" class="screen">
+        <div class="info-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #334155; padding-bottom: 15px;">
+                <h2 style="color: #60a5fa; font-size: 1.8rem;">TỪ ĐIỂN TƯỚNG & HIỆU ỨNG CHI TIẾT</h2>
+                <button class="btn btn-danger" onclick="App.show('menu-screen')">Quay Lại</button>
+            </div>
+            <div class="info-scroll" id="info-grid"></div>
+        </div>
+    </div>
+
+    <!-- BAN / PICK SCREEN -->
+    <div id="bp-screen" class="screen">
+        <div class="glass-panel" style="display: flex; flex-direction: column; align-items: center; width: 95%; max-width: 1200px;">
+            <div class="phase-header" id="bp-title">...</div>
+            <div class="timer" id="bp-timer">30</div>
+            <div class="hero-pool" id="bp-pool"></div>
+            <div style="display: flex; gap: 25px;">
+                <button class="btn btn-danger" id="bp-btn" onclick="App.confirmBP()">Xác Nhận</button>
+                <button class="btn" id="bp-skip" style="background:#475569;" onclick="App.skipBP()">Bỏ Qua (Đồng thuận)</button>
+            </div>
+            <div style="margin-top: 25px; width: 100%; display: flex; justify-content: space-between; background: rgba(0,0,0,0.3); padding: 15px 25px; border-radius: 10px; font-size: 1.1rem;">
+                <div style="color: #60a5fa;"><strong>Đội 1:</strong> <span id="bp-t1-list">Chưa chọn</span></div>
+                <div style="color: #f87171;"><strong>Đội 2:</strong> <span id="bp-t2-list">Chưa chọn</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BATTLE SCREEN -->
+    <div id="battle-screen" class="screen">
+        <div class="battle-header">
+            <div class="team-title tt-1">ĐỘI 1</div>
+            <div id="turn-banner" style="font-size: 1.6rem; font-weight: 900; color: #f59e0b; text-transform: uppercase;">Đang chuẩn bị...</div>
+            <div class="team-title tt-2">ĐỘI 2</div>
+        </div>
+        <div class="arena">
+            <div class="team-side" id="team1-side"></div>
+            <div class="team-side team2-side" id="team2-side"></div>
+        </div>
+        <div class="combat-log" id="combat-log"></div>
+        <div class="controls">
+            <button class="skill-btn" id="btn-atk" onclick="Battle.useNormal()">
+                <div class="sk-name">Đánh Thường</div><div class="sk-desc" id="desc-atk">-</div>
+            </button>
+            <button class="skill-btn" id="btn-skill" onclick="Battle.useSkill()">
+                <div class="sk-name">Tuyệt Kỹ Cố Hữu</div><div class="sk-desc" id="desc-skill">Cần Max EN</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Nhúng file JS vào HTML (Đặt ở cuối thẻ body) -->
+    <script src="script.js"></script>
+</body>
+</html>
