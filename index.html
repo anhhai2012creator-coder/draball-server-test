@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siêu Chiến Binh - v6.0 WebRTC Multiplayer</title>
-    <!-- Thư viện PeerJS để kết nối Multiplayer không cần cài đặt Database -->
+    <title>Siêu Chiến Binh - v6.2 WebRTC (Fixed Sync Bug)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
@@ -27,7 +26,6 @@
 
         #menu-screen h1 { font-size: 4rem; text-transform: uppercase; background: linear-gradient(to right, #60a5fa, #c084fc); -webkit-background-clip: text; color: transparent; margin-bottom: 2rem; text-shadow: 0px 5px 15px rgba(96,165,250,0.3); text-align: center; }
         
-        /* Cấu hình Phòng Chờ */
         .lobby-status { font-size: 1.2rem; color: #f59e0b; margin-top: 15px; font-weight: bold; }
         .room-code { font-size: 3.5rem; color: #10b981; font-weight: 900; letter-spacing: 8px; text-shadow: 0 0 15px rgba(16,185,129,0.4); margin: 10px 0;}
         .network-badge { position: absolute; top: 20px; left: 20px; padding: 8px 15px; background: rgba(0,0,0,0.5); border-radius: 8px; border: 1px solid #475569; font-weight: bold; color: #94a3b8; }
@@ -44,7 +42,7 @@
         .hero-card.banned::after { content: 'LOCKED'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); color: #ef4444; font-weight: 900; font-size: 1rem; border: 2px solid #ef4444; padding: 2px 4px; background: rgba(0,0,0,0.9); }
         .hero-abbr { width: 50px; height: 50px; border-radius: 50%; background: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 900; color: #e2e8f0; border: 2px solid #64748b; margin-bottom: 6px; }
         .hero-name { font-size: 0.8rem; font-weight: 700; text-align: center; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        .hero-role { font-size: 0.65rem; padding: 2px 5px; background: #475569; border-radius: 4px; margin-top: 3px; color: #f8fafc; }
+        .hero-role { font-size: 0.65rem; padding: 2px 5px; background: #475569; border-radius: 4px; margin-top: 3px; color: #f8fafc; font-weight: bold;}
 
         /* Battle */
         .battle-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 40px; background: rgba(15, 23, 42, 0.9); border-bottom: 1px solid var(--border); }
@@ -70,7 +68,6 @@
         .en-bar { height: 100%; background: linear-gradient(90deg, #9333ea, #a855f7); transition: 0.3s; }
         .stats-text { font-size: 0.8rem; color: #94a3b8; font-weight: 700; direction: ltr; margin-bottom: 8px; text-align: center; line-height: 1.2; }
         
-        /* Chỉnh sửa Buff Zone để gọn gàng hơn */
         .buff-zone { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; width: 100%; max-height: 65px; overflow-y: auto; padding: 2px; }
         .buff-zone::-webkit-scrollbar { width: 4px; }
         .buff-zone::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
@@ -102,7 +99,7 @@
     <div id="menu-screen" class="screen active">
         <h1>SIÊU CHIẾN BINH</h1>
         <div class="glass-panel" style="text-align: center; min-width: 500px;">
-            <p style="margin-bottom: 25px; font-size: 1.2rem; color: #cbd5e1;">Peer-to-Peer Multiplayer (WebRTC)</p>
+            <p style="margin-bottom: 25px; font-size: 1.2rem; color: #cbd5e1;">Peer-to-Peer Multiplayer (WebRTC) v6.2</p>
             <div id="menu-buttons" style="display: flex; flex-direction: column; gap: 15px;">
                 <button class="btn btn-primary" onclick="NetApp.hostRoom()">TẠO PHÒNG (HOST)</button>
                 <div style="display: flex; justify-content: center; gap: 10px;">
@@ -162,7 +159,6 @@
 <script>
 /** ==========================================
  *  1. HỆ THỐNG ĐỒNG BỘ RNG (SEED RANDOM)
- *  Đảm bảo Bạo kích/Né tránh giống hệt nhau trên 2 máy
  *  ========================================== */
 let rngSeed = 123456;
 function RNG() {
@@ -171,7 +167,7 @@ function RNG() {
 }
 
 /** ==========================================
- *  2. DATABASE TƯỚNG ĐẦY ĐỦ 14 NHÂN VẬT
+ *  2. DATABASE TƯỚNG (14 NHÂN VẬT)
  *  ========================================== */
 const DB = [
     { id: 'jiren', abbr: 'JR', name: 'Jiren', role: 'ATK', hp: 235549000, atk: 18750000, def: 3000, spd: 150, en: 4.6 },
@@ -445,9 +441,9 @@ const Battle = {
             {n:"Hoả Lực", act:()=>{this.gbAtk=1.3;}}, {n:"Lá Chắn", act:()=>{this.gbShield=1.8;}},
             {n:"Liên Hoàn", act:()=>{this.gbHeal=1.4;}}, {n:"Trâu Bò", act:()=>{this.getAll().forEach(h=>{h.maxHp*=1.3;h.hp=h.maxHp;});}}
         ];
-        // ĐỒNG BỘ: Sử dụng RNG để random sự kiện
+        
         let ev = evs[Math.floor(RNG()*evs.length)];
-        this.log(`SỰ KIỆN 5 GIÂY: [${ev.n}]`, 0, 'c-sys'); ev.act();
+        this.log(`SỰ KIỆN ĐẦU TRẬN: [${ev.n}]`, 0, 'c-sys'); ev.act();
 
         this.getAll().forEach(h => {
             if(h.id==='broly_sp') h.dmgBonus += 0.65;
@@ -579,11 +575,11 @@ const Battle = {
 };
 
 /** ==========================================
- *  3. MẠNG PEERJS MULTIPLAYER (WEBRTC)
+ *  3. MẠNG PEERJS MULTIPLAYER (WEBRTC) - FIXED SYNC
  *  ========================================== */
 const NetApp = {
     peer: null, conn: null, myTeam: 0, roomID: '',
-    bans: [], p1: [], p2: [], phase: 1,
+    bans: [], p1: [], p2: [], phase: 1, timerInt: null, time: 30,
 
     updateStatus(msg, color) { 
         let s = document.getElementById('net-status'); s.innerText = msg; s.style.color = color; 
@@ -594,9 +590,7 @@ const NetApp = {
         this.myTeam = 1;
         this.updateStatus('Đang tạo phòng...', '#f59e0b');
         
-        // Tạo Peer Server với Prefix độc quyền
         this.peer = new Peer('SCB-GAME-' + this.roomID);
-        
         this.peer.on('open', (id) => {
             document.getElementById('menu-buttons').style.display = 'none';
             document.getElementById('lobby-wait').style.display = 'flex';
@@ -605,12 +599,10 @@ const NetApp = {
         });
 
         this.peer.on('connection', (c) => {
-            this.conn = c;
-            this.setupConnection();
+            this.conn = c; this.setupConnection();
             this.updateStatus('🟢 Đã kết nối P2P!', '#34d399');
             setTimeout(() => this.enterBP(), 500);
         });
-
         this.peer.on('error', (err) => { alert('Lỗi mạng: ' + err.type); this.updateStatus('🔴 Lỗi kết nối', '#ef4444'); });
     },
 
@@ -637,9 +629,23 @@ const NetApp = {
             if(data.type === 'SYNC_BP') {
                 this.bans = data.bans; this.p1 = data.p1; this.p2 = data.p2; this.phase = data.phase;
                 if(this.phase > 8) {
-                    rngSeed = data.seed; // Máy Client nhận đúng Seed để Sync
-                    this.show('battle-screen'); Battle.init(this.p1, this.p2);
-                } else this.renderBP();
+                    clearInterval(this.timerInt);
+                    this.renderBP();
+                    // Fix lỗi Desync: Host luôn là người tạo Seed để bắt đầu trận đấu
+                    if(this.myTeam === 1) { 
+                        let newSeed = Math.floor(Math.random() * 999999);
+                        rngSeed = newSeed; 
+                        this.conn.send({ type: 'START_BATTLE', seed: newSeed });
+                        this.show('battle-screen'); Battle.init(this.p1, this.p2);
+                    }
+                } else {
+                    this.renderBP();
+                }
+            }
+            if(data.type === 'START_BATTLE') {
+                clearInterval(this.timerInt);
+                rngSeed = data.seed; // Máy 2 nhận Seed từ Máy 1
+                this.show('battle-screen'); Battle.init(this.p1, this.p2);
             }
             if(data.type === 'ACTION') {
                 if(data.action === 'normal') Battle.useNormal();
@@ -650,6 +656,22 @@ const NetApp = {
 
     show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); },
 
+    startT() {
+        clearInterval(this.timerInt);
+        this.time = this.phase <= 2 ? 25 : 30; // 25s cho lệnh Cấm, 30s cho lệnh Chọn
+        document.getElementById('bp-timer').innerText = this.time;
+        this.timerInt = setInterval(() => {
+            this.time--;
+            document.getElementById('bp-timer').innerText = this.time;
+            if(this.time <= 0) {
+                clearInterval(this.timerInt);
+                let isMyTurn = (this.phase <= 2 && ((this.phase === 1 && this.myTeam === 1) || (this.phase === 2 && this.myTeam === 2))) ||
+                               (this.phase > 2 && ((this.phase % 2 !== 0 && this.myTeam === 1) || (this.phase % 2 === 0 && this.myTeam === 2)));
+                if(isMyTurn) this.autoPick();
+            }
+        }, 1000);
+    },
+
     enterBP() {
         this.show('bp-screen');
         document.getElementById('my-role-text').innerText = this.myTeam === 1 ? 'ĐỘI 1 (Được Ưu Tiên)' : 'ĐỘI 2';
@@ -658,19 +680,22 @@ const NetApp = {
     },
 
     renderBP() {
+        if (this.phase <= 8) this.startT(); // Bật lại đồng hồ đếm ngược
+        
         let pool = document.getElementById('bp-pool'); pool.innerHTML='';
-        let titles = ["ĐỘI 1 CẤM", "ĐỘI 2 CẤM", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN"];
+        let titles = ["ĐỘI 1 CẤM", "ĐỘI 2 CẤM", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "HOÀN TẤT"];
         document.getElementById('bp-title').innerText = titles[this.phase-1] || "HOÀN TẤT";
         
         let isMyTurn = (this.phase <= 2 && ((this.phase === 1 && this.myTeam === 1) || (this.phase === 2 && this.myTeam === 2))) ||
-                       (this.phase > 2 && ((this.phase % 2 !== 0 && this.myTeam === 1) || (this.phase % 2 === 0 && this.myTeam === 2)));
+                       (this.phase > 2 && this.phase <= 8 && ((this.phase % 2 !== 0 && this.myTeam === 1) || (this.phase % 2 === 0 && this.myTeam === 2)));
         
         document.getElementById('bp-btn').disabled = !isMyTurn;
         document.getElementById('bp-btn').innerText = isMyTurn ? "Xác Nhận" : "Chờ Đối Thủ...";
 
         DB.forEach(h => {
             let c = document.createElement('div'); c.className='hero-card'; c.dataset.id=h.id;
-            c.innerHTML = `<div class="hero-abbr">${h.abbr}</div><div class="hero-name">${h.name}</div>`;
+            // Hiển thị đầy đủ chữ Role
+            c.innerHTML = `<div class="hero-abbr">${h.abbr}</div><div class="hero-name">${h.name}</div><div class="hero-role">${h.role}</div>`;
             if(this.bans.includes(h.id) || this.p1.includes(h.id) || this.p2.includes(h.id)) c.classList.add('banned');
             c.onclick = () => {
                 if(!isMyTurn || c.classList.contains('banned')) return;
@@ -684,6 +709,15 @@ const NetApp = {
         document.getElementById('bp-t2-list').innerText = this.p2.length ? this.p2.map(id=>DB.find(x=>x.id===id).name).join(', ') : 'Đang đợi';
     },
 
+    autoPick() {
+        let avail = document.querySelectorAll('.hero-card:not(.banned)');
+        if(avail.length > 0) {
+            let randomCard = avail[Math.floor(Math.random() * avail.length)];
+            randomCard.classList.add(this.myTeam === 1 ? 'selected-t1' : 'selected-t2');
+        }
+        this.confirmBP();
+    },
+
     confirmBP() {
         let sel = document.querySelector('.hero-card.selected-t1, .hero-card.selected-t2');
         if(!sel && this.phase > 2) return alert("Phải chọn tướng!");
@@ -693,31 +727,31 @@ const NetApp = {
         else { if(this.myTeam === 1) this.p1.push(id); else this.p2.push(id); }
         this.phase++;
 
-        if(this.phase > 8 && this.myTeam === 1) {
-            // Máy chủ (Host) tự tạo Seed trận đấu để đồng bộ
-            let newSeed = Math.floor(Math.random() * 999999);
-            rngSeed = newSeed; 
-            this.conn.send({ type: 'SYNC_BP', bans: this.bans, p1: this.p1, p2: this.p2, phase: this.phase, seed: newSeed });
-            this.show('battle-screen'); Battle.init(this.p1, this.p2);
+        // Fix Network Bug: Gửi tín hiệu hoàn tất (Dù Máy 1 hay Máy 2 bấm)
+        this.conn.send({ type: 'SYNC_BP', bans: this.bans, p1: this.p1, p2: this.p2, phase: this.phase });
+        
+        if(this.phase > 8) {
+            clearInterval(this.timerInt);
+            this.renderBP();
+            // Nếu Máy Chủ vô tình ấn cuối cùng (Dù hiếm xảy ra), tự tạo luồng chạy
+            if(this.myTeam === 1) {
+                let newSeed = Math.floor(Math.random() * 999999);
+                rngSeed = newSeed; 
+                this.conn.send({ type: 'START_BATTLE', seed: newSeed });
+                this.show('battle-screen'); Battle.init(this.p1, this.p2);
+            }
         } else {
-            this.conn.send({ type: 'SYNC_BP', bans: this.bans, p1: this.p1, p2: this.p2, phase: this.phase });
             this.renderBP();
         }
     },
 
-    // Kiểm tra và đẩy Lệnh vào Battle
     requestAction(action) {
         if(Battle.queue[Battle.curIdx].team !== this.myTeam) return alert('Chưa tới lượt của đội bạn!');
-        
-        // Gửi lệnh sang máy đối phương
         this.conn.send({ type: 'ACTION', action: action });
-        
-        // Chạy lệnh trên máy mình
         if(action === 'normal') Battle.useNormal();
         if(action === 'skill') Battle.useSkill();
     }
 };
-
 </script>
 </body>
 </html>
