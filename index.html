@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siêu Chiến Binh - v5.0 Multiplayer Database</title>
-    <!-- Nhúng Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <title>Siêu Chiến Binh - v6.0 WebRTC Multiplayer</title>
+    <!-- Thư viện PeerJS để kết nối Multiplayer không cần cài đặt Database -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
         :root { --bg: #0f172a; --primary: #3b82f6; --secondary: #10b981; --danger: #ef4444; --warning: #f59e0b; --text: #f8fafc; --glass: rgba(30, 41, 59, 0.9); --border: rgba(255, 255, 255, 0.15); }
@@ -24,13 +23,14 @@
         .btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); filter: brightness(1.2); }
         .btn:disabled { filter: grayscale(100%); opacity: 0.5; cursor: not-allowed; }
         
-        input[type="text"] { padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #1e293b; color: white; font-size: 16px; text-align: center; margin: 5px; outline: none; }
+        input[type="text"] { padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #1e293b; color: white; font-size: 16px; text-align: center; margin: 5px; outline: none; text-transform: uppercase;}
 
         #menu-screen h1 { font-size: 4rem; text-transform: uppercase; background: linear-gradient(to right, #60a5fa, #c084fc); -webkit-background-clip: text; color: transparent; margin-bottom: 2rem; text-shadow: 0px 5px 15px rgba(96,165,250,0.3); text-align: center; }
         
         /* Cấu hình Phòng Chờ */
-        .lobby-status { font-size: 1.5rem; color: #f59e0b; margin-top: 15px; font-weight: bold; }
-        .room-code { font-size: 3rem; color: #10b981; font-weight: 900; letter-spacing: 5px; }
+        .lobby-status { font-size: 1.2rem; color: #f59e0b; margin-top: 15px; font-weight: bold; }
+        .room-code { font-size: 3.5rem; color: #10b981; font-weight: 900; letter-spacing: 8px; text-shadow: 0 0 15px rgba(16,185,129,0.4); margin: 10px 0;}
+        .network-badge { position: absolute; top: 20px; left: 20px; padding: 8px 15px; background: rgba(0,0,0,0.5); border-radius: 8px; border: 1px solid #475569; font-weight: bold; color: #94a3b8; }
 
         /* Ban Pick */
         .phase-header { font-size: 2rem; font-weight: 800; margin-bottom: 10px; text-align: center; }
@@ -70,6 +70,7 @@
         .en-bar { height: 100%; background: linear-gradient(90deg, #9333ea, #a855f7); transition: 0.3s; }
         .stats-text { font-size: 0.8rem; color: #94a3b8; font-weight: 700; direction: ltr; margin-bottom: 8px; text-align: center; line-height: 1.2; }
         
+        /* Chỉnh sửa Buff Zone để gọn gàng hơn */
         .buff-zone { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; width: 100%; max-height: 65px; overflow-y: auto; padding: 2px; }
         .buff-zone::-webkit-scrollbar { width: 4px; }
         .buff-zone::-webkit-scrollbar-thumb { background: #64748b; border-radius: 4px; }
@@ -95,23 +96,26 @@
 </head>
 <body>
 
-    <!-- MÀN HÌNH CHÍNH & TẠO PHÒNG -->
+    <div class="network-badge" id="net-status">🔴 Offline Mode</div>
+
+    <!-- MÀN HÌNH CHÍNH -->
     <div id="menu-screen" class="screen active">
         <h1>SIÊU CHIẾN BINH</h1>
         <div class="glass-panel" style="text-align: center; min-width: 500px;">
-            <p style="margin-bottom: 25px; font-size: 1.2rem; color: #cbd5e1;">Hệ Thống Multiplayer Online - v5.0</p>
+            <p style="margin-bottom: 25px; font-size: 1.2rem; color: #cbd5e1;">Peer-to-Peer Multiplayer (WebRTC)</p>
             <div id="menu-buttons" style="display: flex; flex-direction: column; gap: 15px;">
-                <button class="btn btn-primary" onclick="NetApp.createRoom()">TẠO PHÒNG (HOST)</button>
+                <button class="btn btn-primary" onclick="NetApp.hostRoom()">TẠO PHÒNG (HOST)</button>
                 <div style="display: flex; justify-content: center; gap: 10px;">
-                    <input type="text" id="join-code" placeholder="Nhập mã phòng..." maxlength="4">
+                    <input type="text" id="join-code" placeholder="MÃ PHÒNG (VD: ABCD)" maxlength="4">
                     <button class="btn btn-info" onclick="NetApp.joinRoom()">VÀO PHÒNG</button>
                 </div>
             </div>
             
             <div id="lobby-wait" style="display: none; flex-direction: column; align-items: center;">
-                <p>Mã phòng của bạn:</p>
+                <p>Gửi mã phòng này cho bạn bè:</p>
                 <div class="room-code" id="display-room-code">----</div>
                 <div class="lobby-status">Đang chờ người chơi 2 kết nối...</div>
+                <button class="btn btn-danger" style="margin-top:20px;" onclick="location.reload()">Hủy</button>
             </div>
         </div>
     </div>
@@ -120,7 +124,7 @@
     <div id="bp-screen" class="screen">
         <div class="glass-panel" style="display: flex; flex-direction: column; align-items: center; width: 95%; max-width: 1200px;">
             <div class="phase-header" id="bp-title">...</div>
-            <div style="color:#f59e0b; font-weight:bold; margin-bottom:10px;">Bạn là: <span id="my-role-text"></span></div>
+            <div style="color:#f59e0b; font-weight:bold; margin-bottom:10px; font-size: 1.2rem;">Bạn đang điều khiển: <span id="my-role-text"></span></div>
             <div class="timer" id="bp-timer">30</div>
             <div class="hero-pool" id="bp-pool"></div>
             <div style="display: flex; gap: 25px;">
@@ -146,43 +150,29 @@
         </div>
         <div class="combat-log" id="combat-log"></div>
         <div class="controls">
-            <button class="skill-btn" id="btn-atk" onclick="NetBattle.sendAction('normal')">
+            <button class="skill-btn" id="btn-atk" onclick="NetApp.requestAction('normal')">
                 <div class="sk-name">Đánh Thường</div><div class="sk-desc" id="desc-atk">-</div>
             </button>
-            <button class="skill-btn" id="btn-skill" onclick="NetBattle.sendAction('skill')">
+            <button class="skill-btn" id="btn-skill" onclick="NetApp.requestAction('skill')">
                 <div class="sk-name">Tuyệt Kỹ Cố Hữu</div><div class="sk-desc" id="desc-skill">Cần Max EN</div>
             </button>
         </div>
     </div>
 
 <script>
-/* =======================================================
-   1. CẤU HÌNH DATABASE (FIREBASE)
-   *BẠN PHẢI THAY MÃ FIREBASE CỦA BẠN VÀO ĐÂY ĐỂ CHƠI ONLINE*
-========================================================== */
-const firebaseConfig = {
-  // Thay thế bằng Config lấy từ Firebase Console của bạn
-  apiKey: "AIzaSy_YOUR_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123:web:abc"
-};
-
-// Khởi tạo Firebase (Sẽ báo lỗi console nếu chưa thay Config thật, nhưng UI vẫn chạy)
-let db;
-try {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-} catch (e) {
-    console.warn("CẢNH BÁO: Chưa thiết lập Database thực. Vui lòng thêm config Firebase để tính năng Online hoạt động.");
+/** ==========================================
+ *  1. HỆ THỐNG ĐỒNG BỘ RNG (SEED RANDOM)
+ *  Đảm bảo Bạo kích/Né tránh giống hệt nhau trên 2 máy
+ *  ========================================== */
+let rngSeed = 123456;
+function RNG() {
+    let x = Math.sin(rngSeed++) * 10000;
+    return x - Math.floor(x);
 }
 
-/* =======================================================
-   2. DATABASE TƯỚNG (14 TƯỚNG)
-========================================================== */
+/** ==========================================
+ *  2. DATABASE TƯỚNG ĐẦY ĐỦ 14 NHÂN VẬT
+ *  ========================================== */
 const DB = [
     { id: 'jiren', abbr: 'JR', name: 'Jiren', role: 'ATK', hp: 235549000, atk: 18750000, def: 3000, spd: 150, en: 4.6 },
     { id: 'goku_xeno', abbr: 'GX', name: 'Goku (Xeno)', role: 'DEF', hp: 290000000, atk: 13500000, def: 6550, spd: 145, en: 3 },
@@ -200,86 +190,471 @@ const DB = [
     { id: 'itachi', abbr: 'IT', name: 'Itachi (Uế Thổ)', role: 'DEF', hp: 300000000, atk: 17550000, def: 5000, spd: 145, en: 3 }
 ];
 
-/* =======================================================
-   3. HỆ THỐNG KẾT NỐI (MULTIPLAYER APP)
-========================================================== */
+class Buff { constructor(name, type, dur, data={}) { this.name=name; this.type=type; this.dur=dur; this.data=data; } }
+
+class Hero {
+    constructor(d, team, idx) {
+        this.id = d.id; this.abbr = d.abbr; this.name = d.name; this.team = team; this.idx = idx; this.role = d.role;
+        this.uid = `${team}-${idx}-${this.id}`;
+        this.maxHp = d.hp; this.hp = d.hp; 
+        this.atk = d.atk; this.def = d.def; this.spd = d.spd;
+        this.en = 0; this.maxEn = d.en;
+        this.critR = this.role === 'ATK' ? 0.13 : 0;
+        this.critD = 1.5; this.armorP = 0; this.dmgRed = 0; this.dodge = 0; 
+        this.healBonus = 0; this.dmgBonus = 0;
+        this.shield = 0; this.buffs = []; this.dead = false; this.cantRevive = false;
+        this.mem = { vxPower:0, zfTaunt:0.8, painDodge:0 };
+        this.applyGodSkills();
+    }
+
+    applyGodSkills() {
+        if(this.id==='jiren'){ this.maxHp*=1.15; this.atk*=1.08; this.dmgRed+=0.05; this.armorP+=0.45; this.critR+=0.23; }
+        if(this.id==='goku_xeno'){ this.dodge+=0.09; this.armorP+=0.06; }
+        if(this.id==='cooler'){ this.atk*=1.25; this.dodge+=0.05; }
+        if(this.id==='broly_sp'){ this.maxHp*=1.25; this.armorP+=0.30; this.critR+=1.28; }
+        if(this.id==='zamasu'){ this.atk*=1.10; this.maxHp*=1.08; this.dodge+=0.07; }
+        if(this.id==='vegeta_ssg'){ this.atk*=1.25; this.armorP+=0.10; this.spd*=1.10; }
+        if(this.id==='vegeta_xeno'){ this.maxHp*=1.25; this.armorP+=0.08; this.critD+=0.15; this.def*=1.10; }
+        if(this.id==='madara'){ this.def*=1.20; this.critR+=0.08; this.dmgRed+=0.07; }
+        if(this.id==='zhuang_fa'){ this.atk*=1.30; this.maxHp*=0.87; this.dmgRed+=0.08; } 
+        if(this.id==='omega'){ this.dmgRed+=0.06; this.armorP+=0.15; }
+        if(this.id==='pain'){ this.maxHp*=1.10; this.def*=1.10; }
+        if(this.id==='vegito'){ this.atk*=1.25; this.maxHp*=1.14; this.dmgBonus+=0.30; }
+        if(this.id==='timekaishin'){ this.maxHp*=1.20; this.def*=1.26; this.healBonus+=0.11; }
+        if(this.id==='itachi'){ this.atk*=1.20; this.critR+=0.11; this.mem.immortal = true; }
+        this.hp = this.maxHp;
+    }
+
+    updateUI() {
+        if(!this.dom) return;
+        this.dom.querySelector('.hp-bar').style.width = `${Math.max(0, this.hp/this.maxHp*100)}%`;
+        this.dom.querySelector('.shield-bar').style.width = `${Math.min(100, this.shield/this.maxHp*100)}%`;
+        this.dom.querySelector('.en-bar').style.width = `${Math.min(100, this.en/this.maxEn*100)}%`;
+        this.dom.querySelector('.stats-text').innerHTML = `HP: ${Math.floor(this.hp).toLocaleString()}<br>EN: ${this.en.toFixed(1)}/${this.maxEn.toFixed(1)}`;
+        
+        let bfHtml = this.shield > 0 ? `<div class="b-pill bg-mark">Lá Chắn</div>` : '';
+        if(this.id === 'pain' && this.hp < this.maxHp * 0.5) bfHtml += `<div class="b-pill bg-buff">Super Teleport</div>`;
+
+        let bGrps = {};
+        this.buffs.forEach(b => { if(!bGrps[b.name]) bGrps[b.name] = {type: b.type, cnt: 0}; bGrps[b.name].cnt++; });
+        for(let n in bGrps) {
+            let b = bGrps[n]; let dn = b.cnt > 1 ? `${n} x${b.cnt}` : n;
+            bfHtml += `<div class="b-pill ${b.type==='buff'?'bg-buff':(b.type==='debuff'?'bg-debuff':'bg-mark')}">${dn}</div>`;
+        }
+        this.dom.querySelector('.buff-zone').innerHTML = bfHtml;
+    }
+
+    has(name) { return this.buffs.some(b=>b.name===name); }
+    addBuff(b) {
+        if(this.dead) return;
+        if(this.id==='broly_sp' && this.hp > this.maxHp*0.8 && b.type==='debuff') return;
+        this.buffs.push(b); this.updateUI();
+    }
+
+    receiveDamage(raw, source, isSkill=false, dodgeable=true) {
+        if(this.dead) return 0;
+        let dRate = this.dodge;
+        
+        if(this.id==='pain') {
+            dRate += this.mem.painDodge;
+            if(this.hp < this.maxHp * 0.5) dRate += Math.floor((((this.maxHp - this.hp) / this.maxHp) * 100) / 4) * 0.02;
+        }
+
+        if(dodgeable && RNG() < dRate) {
+            Battle.float(this.dom, "NÉ TRÁNH", "#ffffff");
+            if(this.id==='pain' && source) source.addBuff(new Buff('Giảm ST', 'debuff', 2));
+            return 0;
+        }
+        if(this.id==='pain') this.mem.painDodge = Math.min(0.6, this.mem.painDodge + 0.15);
+
+        let sDmgBonus = source ? source.dmgBonus : 0;
+        if(source) {
+            if(source.id==='jiren' && source.hp < source.maxHp*0.4) sDmgBonus += (1 - (source.hp/source.maxHp)) * 2; 
+            if(source.id==='vegeta_ssg' && this.atk < source.atk) sDmgBonus += 0.40;
+            if(source.id==='vegeta_ssg' && isSkill && this.hp/this.maxHp < 0.45) sDmgBonus += 0.22;
+            if(source.id==='vegeta_xeno' && !isSkill) sDmgBonus += (source.mem.vxPower * 0.30);
+            if(source.id==='vegeta_xeno' && isSkill && this.hp/this.maxHp > 0.7) sDmgBonus += 0.40;
+            if(source.id==='itachi' && source.hp < source.maxHp*0.5) sDmgBonus += Math.min(0.8, Math.floor((source.maxHp-source.hp)/(source.maxHp*0.08))*0.1);
+        }
+
+        let actualDef = (this.def * (this.has('DEF Tăng')?1.3:1)) * Math.max(0, 1 - (source ? source.armorP : 0));
+        if(this.has('Terror')) actualDef *= 0.7; 
+        if(this.has('VX-ArmorBreak')) actualDef = 0; 
+
+        let dmg = (raw * (1 + sDmgBonus)) - actualDef;
+        if(dmg < 1) dmg = 1;
+
+        let isCrit = false;
+        if(source) {
+            let cr = source.critR + (source.has('Tỉ lệ Bạo Kích') ? 0.15 : 0);
+            if(source.id==='vegeta_xeno' && source.mem.vxPower >= 10 && !isSkill) cr = 1.0;
+            if(RNG() < cr) { isCrit = true; dmg *= (source.role === 'ATK' && isSkill) ? 3.0 : source.critD; }
+        }
+        
+        if(this.id==='omega' && this.shield > 0 && isCrit) { isCrit = false; dmg /= (source.role==='ATK'&&isSkill?3.0:1.5); }
+
+        let tRed = this.dmgRed;
+        if(isSkill && RNG() < 0.15) { tRed += 0.3; Battle.float(this.dom, "CHỐNG ĐỠ", "#a78bfa"); } 
+        if(this.id==='cooler' && this.buffs.some(b=>b.type==='debuff')) tRed += 0.2;
+        if(this.has('Bảo vệ')) tRed += 0.15;
+        if(Battle.getTeam(this.team).some(h=>h.id==='zamasu')) tRed += 0.05;
+        if(source && source.has('GokuDebuff')) tRed += 0.1;
+        if(source && source.has('Thiên đạo')) tRed += 0.3;
+        if(source && source.has('Giảm ST')) tRed += 0.3;
+        if(source && source.has('Ma đạo')) dmg *= 0.75; 
+
+        dmg *= Math.max(0, 1 - tRed);
+
+        if(this.has('Bảo vệ') && this.id !== 'goku_xeno') {
+            let gk = Battle.getTeam(this.team).find(h=>h.id==='goku_xeno');
+            if(gk && !gk.dead) { let split = dmg*0.25; dmg -= split; gk.takeDirect(split, source); }
+        }
+
+        if(source && source.id==='zhuang_fa') {
+            let light = this.buffs.find(b=>b.name==='Ánh Sáng');
+            if(light) {
+                light.data.stacks = (light.data.stacks||1)+1;
+                if(light.data.stacks >= 3) {
+                    this.buffs = this.buffs.filter(b=>b.name!=='Ánh Sáng');
+                    this.addBuff(new Buff('Choáng','debuff',1));
+                }
+            } else this.addBuff(new Buff('Ánh Sáng','debuff',99,{stacks:1}));
+        }
+
+        this.takeDirect(dmg, source, isCrit);
+        return dmg;
+    }
+
+    takeDirect(dmg, source, isCrit=false) {
+        if(this.dead) return;
+        if(this.has('Severe wound') && !this.mem.sevL) this.mem.sevWound = (this.mem.sevWound||0) + dmg;
+        
+        if(this.shield > 0) { if(this.shield >= dmg) { this.shield -= dmg; dmg = 0; } else { dmg -= this.shield; this.shield = 0; } }
+
+        this.hp -= dmg;
+        Battle.float(this.dom, `-${Math.floor(dmg)}`, isCrit ? '#ef4444' : '#f59e0b');
+        this.dom.classList.add('anim-hurt'); setTimeout(()=>this.dom.classList.remove('anim-hurt'), 300);
+
+        if(source && source.has('Fire')) {
+            let fb = source.buffs.find(b=>b.name==='Fire');
+            if(fb) { source.takeDirect(fb.data.atk * 0.4 + source.maxHp * 0.009, null); Battle.float(source.dom, "LỬA UẾ THỔ", "#dc2626"); }
+        }
+
+        if(this.has('Protection')) this.heal(this.buffs.find(x=>x.name==='Protection').data.val);
+        if(this.id==='timekaishin') this.gainEn(this.hp > this.maxHp*0.8 ? 0.4 : 0.9);
+
+        if(source && this.id==='zhuang_fa' && !this.dead) {
+            source.addBuff(new Buff('Nọc Độc', 'debuff', 99, {val: 0.009}));
+            if(RNG()<0.6) { this.addBuff(new Buff('Trả Thù', 'buff', 1)); this.gainEn(1); source.takeDirect(dmg * 0.5, this); }
+        }
+        if(source && this.id==='madara' && !this.dead) { this.gainEn(0.5); source.addBuff(new Buff('Nọc Độc', 'debuff', 99, {val: 0.009})); }
+
+        if(this.hp <= 0) {
+            if(this.id === 'itachi' && this.mem.immortal) {
+                this.hp = 1; this.mem.immortal = false; this.addBuff(new Buff('Bất Tử', 'buff', 3)); this.gainEn(4);
+                Battle.log(`${this.name} Kích hoạt Bất Tử!`, this.team, 'c-sys');
+            } else if (!this.has('Bất Tử')) this.die(source);
+            else this.hp = 1;
+        }
+        
+        if(!this.dead) {
+            if(this.id==='goku_xeno' && this.hp < this.maxHp*0.5 && !this.mem.gkHealed) { this.mem.gkHealed = true; this.heal(this.maxHp*0.5); }
+            if(this.id==='vegito' && this.hp < this.maxHp*0.5 && !this.mem.vgShield) { this.mem.vgShield = true; this.gainShield(this.atk*2.75); this.mem.vgEn = true; }
+        }
+        this.updateUI();
+    }
+
+    heal(amt) {
+        if(this.dead) return;
+        if((this.has('Anti-heal') || this.has('Fire')) && this.id !== 'cooler' && this.id !== 'zhuang_fa') return;
+        let hBonus = this.healBonus;
+        if(this.id==='zhuang_fa' && this.hp < this.maxHp*0.4) hBonus += 0.2;
+        if(this.id==='omega') hBonus += 0.2;
+        amt *= (1 + hBonus) * Battle.gbHeal;
+        this.hp = Math.min(this.maxHp, this.hp + amt);
+        Battle.float(this.dom, `+${Math.floor(amt)}`, '#34d399');
+        this.updateUI();
+    }
+
+    gainShield(amt) { if(!this.dead){ this.shield += amt * Battle.gbShield; this.updateUI(); } }
+    gainEn(amt) { if(!this.dead && !(this.id==='vegeta_xeno' && this.has('Bảo vệ'))){ this.en = Math.min(this.maxEn, this.en + amt); this.updateUI(); } }
+
+    die(killer) {
+        this.dead = true; this.hp = 0; this.dom.classList.add('dead');
+        Battle.log(`${this.name} tử trận!`, this.team, 'c-sys');
+        if(killer && (killer.id==='broly_sp' || killer.has('Dũng Cảm') || (killer.id==='jiren' && this.has('Severe wound')))) this.cantRevive = true;
+        Battle.getAll().filter(h=>h.id==='broly_sp').forEach(b => { b.heal(b.maxHp*0.12); b.addBuff(new Buff('Dũng Cảm', 'buff', 99)); });
+        this.updateUI();
+    }
+
+    onTurnStart() {
+        if(this.dead) return;
+        
+        let bld = this.buffs.find(b=>b.name==='Bleeding');
+        if(bld) { let dmg = bld.data.dmg; if(Battle.getTeam(this.team===1?2:1).some(h=>h.id==='zamasu')) dmg *= 1.25; this.takeDirect(dmg, null); }
+        let b2 = this.buffs.find(b=>b.name==='Bleeding2'); if(b2) this.takeDirect(b2.data.dmg, null);
+        let poison = this.buffs.find(b=>b.name==='Nọc Độc'); if(poison) this.takeDirect(this.maxHp * poison.data.val * this.buffs.filter(b=>b.name==='Nọc Độc').length, null);
+        let severe = this.buffs.find(b=>b.name==='Severe wound' && b.dur <= 0);
+        if(severe) { this.mem.sevL=true; this.takeDirect((this.mem.sevWound||0) * 0.4, null); this.mem.sevWound = 0; this.mem.sevL=false; }
+
+        this.buffs.forEach(b=>b.dur--); this.buffs = this.buffs.filter(b=>b.dur>0);
+
+        if(this.dead) return;
+
+        if(this.id==='cooler' && this.buffs.some(b=>b.type==='debuff')) this.heal(this.atk*1.8);
+        if(this.id==='broly_sp') {
+            if(this.hp > this.maxHp*0.8) this.gainEn(2);
+            this.mem.brolyStk=(this.mem.brolyStk||0)+1; if(this.mem.brolyStk%2===0 && this.dmgBonus < 1.4) this.dmgBonus += 0.25;
+        }
+        if(this.id==='vegeta_xeno') {
+            this.mem.vxPower = Math.min(10, this.mem.vxPower + 1);
+            if(this.mem.vxSh > 0) this.mem.vxSh--; else this.buffs = this.buffs.filter(b=>b.name!=='Bảo vệ');
+        }
+        this.updateUI();
+    }
+}
+
+/** BATTLE ENGINE LÕI */
+const Battle = {
+    t1: [], t2: [], queue: [], curIdx: -1, gbAtk: 1, gbShield: 1, gbHeal: 1, inProgress: false,
+    
+    init(p1, p2) {
+        this.t1 = p1.map((id,i) => new Hero(DB.find(x=>x.id===id), 1, i));
+        this.t2 = p2.map((id,i) => new Hero(DB.find(x=>x.id===id), 2, i));
+        this.inProgress = true;
+        this.render(); this.startEvent();
+    },
+    
+    render() {
+        const build = (h) => {
+            let el = document.createElement('div'); el.className = 'entity'; el.id = h.uid;
+            el.innerHTML = `<div class="e-abbr">${h.abbr}</div><div class="e-name">${h.name}</div>
+                <div class="bar-wrap"><div class="hp-bar" style="width:100%"></div><div class="shield-bar" style="width:0%"></div></div>
+                <div class="bar-wrap"><div class="en-bar" style="width:0%"></div></div>
+                <div class="stats-text"></div><div class="buff-zone"></div>`;
+            h.dom = el; h.updateUI(); return el;
+        };
+        document.getElementById('team1-side').innerHTML=''; document.getElementById('team2-side').innerHTML='';
+        this.t1.forEach(h => document.getElementById('team1-side').appendChild(build(h)));
+        this.t2.forEach(h => document.getElementById('team2-side').appendChild(build(h)));
+    },
+    
+    startEvent() {
+        this.gbAtk=1; this.gbShield=1; this.gbHeal=1; document.getElementById('combat-log').innerHTML = '';
+        let evs = [
+            {n:"Hoả Lực", act:()=>{this.gbAtk=1.3;}}, {n:"Lá Chắn", act:()=>{this.gbShield=1.8;}},
+            {n:"Liên Hoàn", act:()=>{this.gbHeal=1.4;}}, {n:"Trâu Bò", act:()=>{this.getAll().forEach(h=>{h.maxHp*=1.3;h.hp=h.maxHp;});}}
+        ];
+        // ĐỒNG BỘ: Sử dụng RNG để random sự kiện
+        let ev = evs[Math.floor(RNG()*evs.length)];
+        this.log(`SỰ KIỆN 5 GIÂY: [${ev.n}]`, 0, 'c-sys'); ev.act();
+
+        this.getAll().forEach(h => {
+            if(h.id==='broly_sp') h.dmgBonus += 0.65;
+            if(h.id==='omega') { h.gainShield(h.maxHp*0.5); }
+            if(h.id==='vegeta_xeno') { h.addBuff(new Buff('Bảo vệ','buff',2)); h.mem.vxSh=2; }
+        });
+
+        let fTeam = RNG()<0.5 ? this.t1 : this.t2;
+        fTeam.reduce((m,h)=>h.spd>m.spd?h:m, fTeam[0]).spd += 1000;
+        
+        setTimeout(() => { this.calcQueue(); this.nextTurn(); }, 1500);
+    },
+    
+    calcQueue() { this.queue = this.getAll().sort((a,b)=>b.spd - a.spd); this.curIdx = -1; },
+    getAll() { return [...this.t1, ...this.t2].filter(h=>!h.dead); },
+    getTeam(t) { return (t===1?this.t1:this.t2).filter(h=>!h.dead); },
+    getEnemies(t) { return (t===1?this.t2:this.t1).filter(h=>!h.dead); },
+    
+    log(msg, t, cls='') {
+        let el = document.getElementById('combat-log');
+        let pre = t===1 ? `<span class="c-t1">[Đội 1]</span>` : (t===2 ? `<span class="c-t2">[Đội 2]</span>` : '');
+        el.innerHTML += `<div class="log-row ${cls}">${pre} ${msg}</div>`;
+        el.scrollTop = el.scrollHeight;
+    },
+    
+    float(el, txt, color) {
+        let f = document.createElement('div'); f.className='dmg-text'; f.style.color=color; f.innerText=txt;
+        f.style.left = (RNG()*40+20) + 'px'; el.appendChild(f);
+        setTimeout(()=>f.remove(), 1000);
+    },
+
+    nextTurn() {
+        if(!this.inProgress) return;
+        if(this.getTeam(1).length===0) { this.inProgress = false; return setTimeout(()=>alert("ĐỘI 2 CHIẾN THẮNG! Tải lại trang để chơi tiếp."),1000); }
+        if(this.getTeam(2).length===0) { this.inProgress = false; return setTimeout(()=>alert("ĐỘI 1 CHIẾN THẮNG! Tải lại trang để chơi tiếp."),1000); }
+        
+        document.querySelectorAll('.entity').forEach(e=>e.classList.remove('active-turn'));
+        this.curIdx++; if(this.curIdx >= this.queue.length) { this.calcQueue(); this.curIdx=0; }
+        
+        let hero = this.queue[this.curIdx];
+        if(hero.dead) return this.nextTurn();
+        
+        hero.dom.classList.add('active-turn');
+        document.getElementById('turn-banner').innerText = `LƯỢT CỦA: ${hero.name}`; 
+        
+        hero.onTurnStart();
+        if(hero.dead) return this.nextTurn();
+        
+        let isStun = hero.has('Choáng') || (hero.buffs.find(b=>b.name==='Terror') && RNG()<0.5);
+        if(isStun) {
+            this.log(`${hero.name} bị Choáng/Terror, mất lượt hành động!`, hero.team, 'c-sys');
+            setTimeout(()=>this.nextTurn(), 900); return;
+        }
+        
+        document.getElementById('btn-skill').disabled = hero.en < hero.maxEn;
+        document.getElementById('desc-atk').innerText = "Hồi: " + (hero.id==='timekaishin'?1.4:(hero.id==='zamasu'?1.4:(hero.id==='jiren'?1.8:1.0))) + " EN";
+        document.getElementById('desc-skill').innerText = `Cần ${hero.maxEn} EN`;
+    },
+
+    getTar(hero, mode='rand') {
+        let ens = this.getEnemies(hero.team); if(ens.length===0) return null;
+        let zf = ens.find(e=>e.id==='zhuang_fa'); if(zf && RNG() < zf.mem.zfTaunt) return [zf];
+        
+        if(mode==='back') { let b = ens.filter(e=>e.idx>0); if(b.length) return [b[Math.floor(RNG()*b.length)]]; }
+        if(mode==='all') return ens;
+        if(mode==='minHp') return [ens.reduce((m,e)=>e.maxHp<m.maxHp?e:m, ens[0])];
+        if(mode==='maxAtk') return [ens.reduce((m,e)=>e.atk>m.atk?e:m, ens[0])];
+        return [ens[Math.floor(RNG()*ens.length)]];
+    },
+
+    useNormal() {
+        let h = this.queue[this.curIdx]; let atk = h.atk * this.gbAtk;
+        if(h.id==='vegeta_xeno' && h.has('Bảo vệ')) { this.log(`${h.name} tung Lan Toả Vô Tận!`, h.team); this.getEnemies(h.team).forEach(e => e.receiveDamage(atk*0.5, h, false)); }
+
+        let mode = 'rand'; let p = 1.0; let enGain = 1.0;
+        if(h.id==='jiren') { mode='back'; p=0.98; enGain=1.8; }
+        if(h.id==='goku_xeno') { p=1.0; enGain=0.9; }
+        if(h.id==='cooler') { p=0.99; enGain=1.2; }
+        if(h.id==='broly_sp') { enGain=1.0; if(!h.has('FirstHit')){h.addBuff(new Buff('FirstHit','mark',99)); h.gainShield(h.maxHp*0.1);} }
+        if(h.id==='zamasu') { mode='all'; p=0.92; enGain=1.4; }
+        if(h.id==='vegeta_ssg') { p=0.88; enGain=0.8; }
+        if(h.id==='vegeta_xeno') { mode='all'; p=0.99; enGain=1.6; if(!h.mem.vxFH) { mode='minHp'; p=1.89; h.mem.vxFH=true; } }
+        if(h.id==='madara') { p=0.95; enGain=1.0; }
+        if(h.id==='zhuang_fa') { mode='all'; p=0.80; enGain=1.0; }
+        if(h.id==='omega') { p=0.90; enGain=1.8; }
+        if(h.id==='pain') { mode='all'; p=0.45; enGain=1.2; }
+        if(h.id==='vegito') { p=0.98; enGain= 0.9 + (h.mem.vgEn?0.5:0); }
+        if(h.id==='timekaishin') { p=0.45; enGain=1.4; }
+        if(h.id==='itachi') { mode='all'; p=0.88; enGain=0.9; }
+
+        let targets = this.getTar(h, mode); if(!targets) return;
+        this.log(`${h.name} Đánh Thường!`, h.team);
+        
+        targets.forEach(t => {
+            t.receiveDamage(atk*p, h, false);
+            if(h.id==='jiren') t.addBuff(new Buff('Severe wound','debuff',2));
+            if(h.id==='zamasu') { t.addBuff(new Buff('Bleeding','debuff',2,{dmg:atk*0.1})); if(RNG()<0.8) t.addBuff(new Buff('Choáng','debuff',1)); }
+            if(h.id==='vegeta_ssg' && RNG()<0.2) t.addBuff(new Buff('Choáng','debuff',1));
+            if(h.id==='vegeta_xeno' && h.mem.vxFH && mode==='minHp') t.addBuff(new Buff('VX-ArmorBreak','debuff',5));
+            if(h.id==='madara') t.addBuff(new Buff('Ma đạo','debuff',2));
+            if(h.id==='zhuang_fa' && RNG()<0.3) t.addBuff(new Buff('Ánh Sáng','debuff',99));
+            if(h.id==='vegito') t.addBuff(new Buff('Bleeding2','debuff',3,{dmg:atk*0.4}));
+            if(h.id==='itachi') t.addBuff(new Buff('Bleeding','debuff',2,{dmg:atk*0.1}));
+        });
+        h.gainEn(enGain); setTimeout(()=>this.nextTurn(), 1000);
+    },
+
+    useSkill() {
+        let h = this.queue[this.curIdx]; if(h.en < h.maxEn) return;
+        h.en = 0; h.updateUI(); let atk = h.atk * this.gbAtk;
+        this.log(`${h.name} tung TUYỆT KỸ!`, h.team, 'c-sys');
+        
+        if(h.id==='jiren') { let t = this.getTar(h,'back')[0]; t.receiveDamage(atk*2.75, h, true); if(h.critR < 0.6) h.critR += 0.15; }
+        else if(h.id==='goku_xeno') { this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*0.55, h, true); t.addBuff(new Buff('GokuDebuff','debuff',3)); }); h.heal(h.maxHp*0.04); if(h.hp > h.maxHp*0.5) { let pals = this.getTeam(h.team).filter(a=>a.id!=='goku_xeno'); if(pals.length) pals.reduce((m,a)=>a.hp<m.hp?a:m, pals[0]).addBuff(new Buff('Bảo vệ','buff',1)); } }
+        else if(h.id==='cooler') { let t = this.getTar(h,'back')[0]; h.gainShield(t.receiveDamage(atk*3.52, h, true) * 0.3); if(RNG()<0.4) t.addBuff(new Buff('Choáng','debuff',1)); if(RNG()<0.6) t.buffs = t.buffs.filter(b=>b.type!=='buff'); }
+        else if(h.id==='broly_sp') { let t = this.getTar(h)[0]; h.critR+=0.3; t.receiveDamage(atk*2.75, h, true); }
+        else if(h.id==='zamasu') { this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*1.1, h, true); if(RNG()<0.37) t.addBuff(new Buff('Terror','debuff',2)); }); }
+        else if(h.id==='vegeta_ssg') { this.getTar(h,'all').forEach(t=> t.receiveDamage(atk*1.0, h, true)); h.gainShield(atk*1.85); h.dodge += 0.2; this.getTeam(h.team).forEach(a=>a.dodge+=0.09); }
+        else if(h.id==='vegeta_xeno') { this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*1.1, h, true); t.addBuff(new Buff('Dũng Cảm','debuff',99)); }); h.mem.vxPower = Math.min(10, h.mem.vxPower + 1); }
+        else if(h.id==='madara') { let oC = h.critR; h.critR += 0.3; this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*3.0, h, true); if(RNG()<0.53) t.addBuff(new Buff('Choáng','debuff',2)); }); h.critR = oC; }
+        else if(h.id==='zhuang_fa') { let p = this.getTeam(h.team); let lw = p.reduce((m,a)=>a.hp<m.hp?a:m, p[0]); lw.heal(atk*2.0 + lw.maxHp*0.01); }
+        else if(h.id==='omega') { let t = this.getTar(h,'maxAtk')[0]; t.receiveDamage(atk*2.75, h, true); if(RNG() < (h.mem.omFS?1.0:0.6)) { t.addBuff(new Buff('Terror','debuff',2)); h.dmgRed += 0.3; } h.mem.omFS = false; }
+        else if(h.id==='pain') { this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*1.1, h, true); if(RNG()<0.33) t.addBuff(new Buff('Terror','debuff',2)); if(RNG()<0.33) t.addBuff(new Buff('Thiên Đạo','debuff',3)); }); h.addBuff(new Buff('ControlApply','mark',2)); }
+        else if(h.id==='vegito') { this.getTar(h,'all').forEach(t=>{ t.receiveDamage(atk*0.75, h, true); t.addBuff(new Buff('Bleeding2','debuff',3,{dmg:atk*0.44})); }); }
+        else if(h.id==='timekaishin') { let tot = 0; this.getTar(h,'all').forEach(t=>{ tot += t.receiveDamage(atk*0.71, h, true); }); this.getTeam(h.team).forEach(a=>{ a.heal(tot*0.5); a.gainShield(h.maxHp*0.08); a.addBuff(new Buff('Tỉ lệ Bạo Kích','buff',2)); a.addBuff(new Buff('DEF Tăng','buff',4)); if(a.id !== h.id) a.addBuff(new Buff('Protection','buff',99,{val: h.maxHp*0.08})); }); }
+        else if(h.id==='itachi') { let tot = 0; this.getTar(h,'all').forEach(t=>{ tot += t.receiveDamage(atk*1.8, h, true); t.addBuff(new Buff('Fire','debuff',4,{atk: h.atk})); }); h.addBuff(new Buff('Gian Xảo','buff',99)); h.heal(tot*0.2); }
+        setTimeout(()=>this.nextTurn(), 1200);
+    }
+};
+
+/** ==========================================
+ *  3. MẠNG PEERJS MULTIPLAYER (WEBRTC)
+ *  ========================================== */
 const NetApp = {
-    myRole: '', roomID: '', roomRef: null,
+    peer: null, conn: null, myTeam: 0, roomID: '',
     bans: [], p1: [], p2: [], phase: 1,
 
-    show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); },
-    
-    // TẠO PHÒNG (HOST)
-    createRoom() {
-        if(!db) return alert("Chưa kết nối Database!");
-        this.roomID = Math.floor(1000 + Math.random() * 9000).toString();
-        this.myRole = 'p1';
-        this.roomRef = db.ref('rooms/' + this.roomID);
+    updateStatus(msg, color) { 
+        let s = document.getElementById('net-status'); s.innerText = msg; s.style.color = color; 
+    },
+
+    hostRoom() {
+        this.roomID = Math.floor(1000 + Math.random()*9000).toString();
+        this.myTeam = 1;
+        this.updateStatus('Đang tạo phòng...', '#f59e0b');
         
-        this.roomRef.set({
-            status: 'waiting', phase: 1,
-            bans: [], p1_picks: [], p2_picks: [], turn: 0,
-            lastAction: null // Sync lệnh đánh
+        // Tạo Peer Server với Prefix độc quyền
+        this.peer = new Peer('SCB-GAME-' + this.roomID);
+        
+        this.peer.on('open', (id) => {
+            document.getElementById('menu-buttons').style.display = 'none';
+            document.getElementById('lobby-wait').style.display = 'flex';
+            document.getElementById('display-room-code').innerText = this.roomID;
+            this.updateStatus('Đang là Host (Chờ kết nối)', '#10b981');
         });
 
-        document.getElementById('menu-buttons').style.display = 'none';
-        document.getElementById('lobby-wait').style.display = 'flex';
-        document.getElementById('display-room-code').innerText = this.roomID;
-
-        // Lắng nghe người chơi 2 vào
-        this.roomRef.on('value', (snap) => {
-            let data = snap.val();
-            if(data && data.status === 'bp' && this.phase === 1) {
-                this.enterBP();
-            }
+        this.peer.on('connection', (c) => {
+            this.conn = c;
+            this.setupConnection();
+            this.updateStatus('🟢 Đã kết nối P2P!', '#34d399');
+            setTimeout(() => this.enterBP(), 500);
         });
+
+        this.peer.on('error', (err) => { alert('Lỗi mạng: ' + err.type); this.updateStatus('🔴 Lỗi kết nối', '#ef4444'); });
     },
 
-    // VÀO PHÒNG (CLIENT)
     joinRoom() {
-        if(!db) return alert("Chưa kết nối Database!");
-        let code = document.getElementById('join-code').value;
-        if(code.length !== 4) return alert("Mã phòng phải có 4 số!");
-
-        let ref = db.ref('rooms/' + code);
-        ref.once('value', (snap) => {
-            if(snap.exists() && snap.val().status === 'waiting') {
-                this.roomID = code;
-                this.myRole = 'p2';
-                this.roomRef = ref;
-                this.roomRef.update({ status: 'bp' });
+        let code = document.getElementById('join-code').value.trim();
+        if(code.length !== 4) return alert("Mã phòng phải có 4 ký tự!");
+        this.myTeam = 2;
+        this.updateStatus('Đang tìm phòng...', '#f59e0b');
+        
+        this.peer = new Peer();
+        this.peer.on('open', (id) => {
+            this.conn = this.peer.connect('SCB-GAME-' + code);
+            this.conn.on('open', () => {
+                this.setupConnection();
+                this.updateStatus('🟢 Đã kết nối P2P!', '#34d399');
                 this.enterBP();
-            } else {
-                alert("Phòng không tồn tại hoặc đã đầy!");
+            });
+        });
+        this.peer.on('error', (err) => { alert('Không tìm thấy phòng!'); this.updateStatus('🔴 Lỗi mạng', '#ef4444'); });
+    },
+
+    setupConnection() {
+        this.conn.on('data', (data) => {
+            if(data.type === 'SYNC_BP') {
+                this.bans = data.bans; this.p1 = data.p1; this.p2 = data.p2; this.phase = data.phase;
+                if(this.phase > 8) {
+                    rngSeed = data.seed; // Máy Client nhận đúng Seed để Sync
+                    this.show('battle-screen'); Battle.init(this.p1, this.p2);
+                } else this.renderBP();
+            }
+            if(data.type === 'ACTION') {
+                if(data.action === 'normal') Battle.useNormal();
+                if(data.action === 'skill') Battle.useSkill();
             }
         });
     },
 
-    // MÀN HÌNH BAN/PICK ONLINE
+    show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); },
+
     enterBP() {
         this.show('bp-screen');
-        document.getElementById('my-role-text').innerText = this.myRole === 'p1' ? 'ĐỘI 1 (Được Ưu Tiên)' : 'ĐỘI 2';
-        document.getElementById('my-role-text').style.color = this.myRole === 'p1' ? '#60a5fa' : '#f87171';
-        
-        // Lắng nghe thay đổi từ Database để cập nhật giao diện
-        this.roomRef.on('value', (snap) => {
-            let data = snap.val();
-            if(!data) return;
-            this.phase = data.phase || 1;
-            this.bans = data.bans || [];
-            this.p1 = data.p1_picks || [];
-            this.p2 = data.p2_picks || [];
-            
-            if(this.p1.length === 3 && this.p2.length === 3 && data.status !== 'playing') {
-                if(this.myRole === 'p1') this.roomRef.update({ status: 'playing' });
-                this.show('battle-screen');
-                // Chạy Engine Combat
-                // NetBattle.init(this.p1, this.p2, this.myRole, this.roomRef);
-                alert("Hoàn tất chọn tướng. Dữ liệu đã đồng bộ! (Logic Battle Sync phức tạp đang được tối ưu).");
-                return;
-            }
-            this.renderBP();
-        });
+        document.getElementById('my-role-text').innerText = this.myTeam === 1 ? 'ĐỘI 1 (Được Ưu Tiên)' : 'ĐỘI 2';
+        document.getElementById('my-role-text').style.color = this.myTeam === 1 ? '#60a5fa' : '#f87171';
+        this.renderBP();
     },
 
     renderBP() {
@@ -287,9 +662,8 @@ const NetApp = {
         let titles = ["ĐỘI 1 CẤM", "ĐỘI 2 CẤM", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN", "ĐỘI 1 CHỌN", "ĐỘI 2 CHỌN"];
         document.getElementById('bp-title').innerText = titles[this.phase-1] || "HOÀN TẤT";
         
-        // Khóa nút nếu không phải lượt của mình
-        let isMyTurn = (this.phase <= 2 && ((this.phase === 1 && this.myRole === 'p1') || (this.phase === 2 && this.myRole === 'p2'))) ||
-                       (this.phase > 2 && ((this.phase % 2 !== 0 && this.myRole === 'p1') || (this.phase % 2 === 0 && this.myRole === 'p2')));
+        let isMyTurn = (this.phase <= 2 && ((this.phase === 1 && this.myTeam === 1) || (this.phase === 2 && this.myTeam === 2))) ||
+                       (this.phase > 2 && ((this.phase % 2 !== 0 && this.myTeam === 1) || (this.phase % 2 === 0 && this.myTeam === 2)));
         
         document.getElementById('bp-btn').disabled = !isMyTurn;
         document.getElementById('bp-btn').innerText = isMyTurn ? "Xác Nhận" : "Chờ Đối Thủ...";
@@ -301,7 +675,7 @@ const NetApp = {
             c.onclick = () => {
                 if(!isMyTurn || c.classList.contains('banned')) return;
                 document.querySelectorAll('.hero-card').forEach(x=>x.classList.remove('selected-t1','selected-t2'));
-                c.classList.add(this.myRole === 'p1' ? 'selected-t1' : 'selected-t2');
+                c.classList.add(this.myTeam === 1 ? 'selected-t1' : 'selected-t2');
             };
             pool.appendChild(c);
         });
@@ -315,17 +689,32 @@ const NetApp = {
         if(!sel && this.phase > 2) return alert("Phải chọn tướng!");
         let id = sel ? sel.dataset.id : null;
 
-        let updates = { phase: this.phase + 1 };
-        
-        if(this.phase <= 2) { 
-            if(id) updates.bans = [...this.bans, id]; 
-        } else {
-            if(this.myRole === 'p1') updates.p1_picks = [...this.p1, id];
-            else updates.p2_picks = [...this.p2, id];
-        }
+        if(this.phase <= 2) { if(id) this.bans.push(id); } 
+        else { if(this.myTeam === 1) this.p1.push(id); else this.p2.push(id); }
+        this.phase++;
 
-        // Đẩy lên Firebase
-        this.roomRef.update(updates);
+        if(this.phase > 8 && this.myTeam === 1) {
+            // Máy chủ (Host) tự tạo Seed trận đấu để đồng bộ
+            let newSeed = Math.floor(Math.random() * 999999);
+            rngSeed = newSeed; 
+            this.conn.send({ type: 'SYNC_BP', bans: this.bans, p1: this.p1, p2: this.p2, phase: this.phase, seed: newSeed });
+            this.show('battle-screen'); Battle.init(this.p1, this.p2);
+        } else {
+            this.conn.send({ type: 'SYNC_BP', bans: this.bans, p1: this.p1, p2: this.p2, phase: this.phase });
+            this.renderBP();
+        }
+    },
+
+    // Kiểm tra và đẩy Lệnh vào Battle
+    requestAction(action) {
+        if(Battle.queue[Battle.curIdx].team !== this.myTeam) return alert('Chưa tới lượt của đội bạn!');
+        
+        // Gửi lệnh sang máy đối phương
+        this.conn.send({ type: 'ACTION', action: action });
+        
+        // Chạy lệnh trên máy mình
+        if(action === 'normal') Battle.useNormal();
+        if(action === 'skill') Battle.useSkill();
     }
 };
 
